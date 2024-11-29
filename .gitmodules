@@ -1,0 +1,9 @@
+[submodule "Sugiyama_Architecture"]
+	path = architecture
+	url = https://github.com/Steini1998/Sugiyama_Architecture.git
+[submodule "Sugiyama_Implementations"]
+	path = implementation
+	url = https://github.com/Steini1998/Sugiyama_Implementations.git
+[submodule "Sugiyama_Demos"]
+	path = demo
+	url = https://github.com/Steini1998/Sugiyama_Demos.git
