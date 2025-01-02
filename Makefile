@@ -1,4 +1,6 @@
-# Compiler and Linker, with Options (e.g. for "COMPILER.cpp")
+# Definitions from variables, which should be the same over all subprojects
+
+# Compiler and Options (e.g. for "COMPILER.cpp")
 export CXX := cl
 export CXXFLAGS := -nologo -W3 -Zm300 -TP -EHsc -Ox -MT
 
@@ -27,3 +29,10 @@ $(SUBMODULE_IMPLEMENTATION): $(SUBMODULE_ARCHITECTURE)
 .PHONY: $(SUBMODULES)
 $(SUBMODULES):
 	$(MAKE) --directory=$@
+	
+	
+.PHONY: clean
+clean:
+	$(MAKE) --directory=$(SUBMODULE_ARCHITECTURE) clean
+	$(MAKE) --directory=$(SUBMODULE_IMPLEMENTATION) clean
+	$(MAKE) --directory=$(SUBMODULE_DEMO) clean
