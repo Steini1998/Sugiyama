@@ -1,0 +1,139 @@
+Sugiyama-Projekt (Projektbeschreibung von Nicolas Steinbach <s4nsstei@uni-trier.de>, Mtk-Nr 1441991)
+
+Die Projektaufgabe bestand darin, den Sugiyama-Algorithmus in der Programmiersprache "C++" unter Zuhilfename der 
+Bibliothek "LEDA" umzusetzen.
+Das Team umfasste Lukas Kohlhaas <s4llkohl@uni-trier.de>, Timur Sultanov <s4trsult@uni-trier.de> und mich.
+
+Wir orientierten uns bei dem Projekt hauptsächlich an dem Vorlesungsskript 
+"Visualization of Graphs - Lecture 8: Hierarchical Layouts: Sugiyama Framework" von Philipp Kindermann und 
+dessen Ansatz, den gesamten Algorithmus in einzelne Teilschritte/Steps (wie etwa "Cycle-Breaking" oder "Leveling") zu untergliedern.
+Diese Schritte wurden auf die Team-Mitglieder aufgeteilt und unabhängig voneinander implementiert,
+sodass man sie anschließend nur noch über eine möglichst einfache Software-Architektur verknüpfen muss.
+
+Ich habe den Teilschritt "Cycle-Breaking" übernommen und nach der Heuristik von Berger und Shor [Berger, Shor '90] implementiert.
+
+Des Weiteren entwickelte ich die Software-Architektur des Projekts, deren Motivation/Absicht und Aufbau etwas mehr Erklärung bedarf:
+
+(1) Motivation/Absicht
+Neben dem logischen Primärziel, den Sugiyama-Algorithmus fehlerfrei in Quellcode zu überführen und ausführbar zu machen,
+standen folgende Aspekte ebenso im Vordergrund:
+
+	(a) Eine möglichst einfache API für den Sugiyama-Algorithmus erzeugen.
+		Allerdings trotzdem die Möglichkeit erhalten, wichtige Konfigurationen vornehmen zu können.
+
+	(b) Neue Schritte/Steps sollten ohne grossen Aufwand ergänzt werden können.
+		Ebenso sollten bereits existierende Schritte durch neue Implementierungen ersetzt werden können.
+		
+		Denn es gibt häufig mehrere Heuristiken/Algorithmen für den gleichen Step, wie etwa "Cycle-Breaking" (nach [Berger, Shor '90]
+		und nach [Eades, Lin, Smyth '93]) oder "Crossing-Minimization" (mithilfe der Barycenter Heuristik [Sugiyama et al. '81] und
+		Median Heuristik [Eades & Wormald '94]).
+		
+		Mehrere Beispiele für ergänzende Steps wären etwa das Löschen von Hilfsknoten, die beim Step "Leveling" hinzugefügt werden
+		mussten, oder das Herstellen der ursprünglichen Kanten, welche im Step "Cycle-Breaking" umgekehrt werden mussten.
+		Diese könnte man nach Belieben dem Programm hinzufügen oder weglassen.
+		
+	(c) Simples Navigieren/Iterieren über die Ergebnisse des Sugiyama-Algorithmus sollte möglich sein:
+			
+			(i) Ein User-Interface für die Navigation, welches man selbst konfigurieren und austauschen kann.
+			
+			(ii) Das Iterieren über die Ergebnisse sollte vorwärts und rückwärts möglich sein.
+			
+			(iii) Die Ergebnisse sollten einmal vorberechnet und dann gecachet werden, sodass sie auf Abruf verfügbar sind.
+				  Dadurch entstehen keine Verzögerungen bei der Navigation durch aufwendige Zwischenberechnungen - wie etwa die 
+				  Crossing-Minimization.
+	
+
+(2) Aufbau
+Die Software-Architektur wird durch das UML-Diagramm "UML_Sugiyama.drawio" unter "docs" dargestellt.
+
+Dabei benötigen einige Klassen und Assoziationen eine besondere Erklärung:
+
+	(a) Die Klasse 'sugiyama' dient als eine Fassade (gemäß dem Design-Pattern "Facade"), da es dem User eine übersichtliche
+		API zum gesamten Subsystem liefert, wie zuvor in (1.a) gefordert: 
+		
+		Man muss dem 'sugiyama'-Objekt bei der Initialisierung nur das aktuelle Graph-Window übergeben.
+		Anschliessend kann man ihm mithilfe der Methode 'add(step)' die gewünschten Steps in der Reihenfolge hinzufügen, 
+		in der sie dann auch tatsächlich ausgeführt werden sollen, ähnlich dem Design-Pattern "Strategy" mit mehreren Strategien.		
+		Zusätzlich sollte man das 'step_viewer'-Objekt festlegen, siehe Methode 'setStepViewer(step_viewer)', um 
+		mühelos ueber die berechneten Ergebnisse der Teilschritte navigieren zu können.
+		Das 'step_viewer'-Objekt selbst muss dabei mit einer Implementierung des Interfaces 'step_user_interface' über die 
+		Methode 'setUI(step_user_interface)' konfiguriert werden.
+		Die Ergebnisse der Steps lassen sich durch den Aufruf der Methode 'executeAllSteps()' berechnen.
+		Anschließend kann man mithilfe der Methode 'viewAllSteps()' die Navigation über Jene starten.
+		
+	(b)	Ein 'sugiyama'-Objekt wird automatisch mit einem Objekt der Klasse 'graph_update_tracker' initialisiert.
+		Der 'graph_update_tracker' dient als Datenstruktur und ermöglicht es, Daten über alle Step-Objekte hinweg zu kommunizieren -
+		wie etwa Knoten, die im Vergleich zum Original-Graphen neu hinzugefügt oder entfernt wurden.
+		
+	(c) Das Interface (genauer die Abstrakte Klasse) 'step' kennzeichnet explizit die einzelnen Teilschritte.
+		Der Programmierer muss dabei ausschließlich die abstrakte Methode 'run()' implementieren.
+		Die Klasse kann frei von Graphik- und Iterations-Logik implementiert werden und nur den tatsächlichen Algorithmus enthalten.
+		Denn die Template-Methode 'execute' ruft intern die 'run()'-Methode auf und erstellt - unabhängig davon - für jede 
+		'step'-Klasse einen Snapshot über die private Methode 'saveResult()'.
+		Dieser Snapshot, bestehend aus Graph und Positionen, wird in einem 'positionable_graph'-Objekt gespeichert, welches mit dem
+		jeweiligen Step assoziiert ist und damit nur einmal berechnet werden muss.
+		Zwar benötigt dies mehr Speicherplatz - denn jedes Mal muss ein eigener Graph erzeugt werden und dessen Positionen
+		berechnet werden - allerdings überwiegt meiner Meinung nach die bessere Performance diesen Nachteil, siehe (1.c.iii).
+		Das 'step'-Interface bietet insgesamt den einfachsten Punkt, um den Algorithmus anzupassen oder zu erweitern, ohne 
+		existierenden Source-Code abändern zu müssen, siehe (1.b).
+	
+	(d) Jedes 'step'-Objekt hat Zugriff auf das aktuelle 'sugiyama'-Objekt - sodass Informationen, die global für alle
+		Teilschritte interessant sein könnten (wie etwa der 'graph_update_tracker') direkt verfügbar sind.
+	
+	(e) Das Interface 'step_user_interface' hat nur eine abstrakte Methode 'nextStep()', welche nur eine Integer zurückgibt, sodass
+		das User-Interface extrem leicht ohne künstliche Abhängigkeiten und Beschränkungen erweitert bzw. ausgetauscht werden kann
+		(siehe (1.c.i)).
+		
+	(f) Der 'step_viewer' bietet dem User mit der Methode 'view()' die Möglichkeit, je nach Eingabe auf dem User-Interface sich
+		einen Schritt vorwärts oder auch rückwärts zu bewegen, siehe (1.c.ii).
+		Anschliessend zeigt es den mit dem aktuellen Step assoziierten Graphen und dessen Positionen mithilfe des aktuellen 
+		'positionable_graph'-Objekts.
+		Sollte der 'step_viewer' unabhängig von der Fassade 'sugiyama' verwendet werden, so muss man die gewünschten Steps manuell
+		über die Methode 'setSteps(list<step>)' setzen.
+		
+
+Weitere Kommentare zum Projekt:
+
+(1) Lernprozess (LEDA, C++, Make)
+
+Einen Großteil der verfügbaren Projektzeit habe ich damit verbracht, die LEDA-Bibliothek kennen zu lernen, um diese als
+Grundlage für das Projekt nutzen zu können.
+Dabei waren Kenntnisse in C++ unerlässlich, da sowohl die LEDA-Bibliothek selbst darin implementiert wurde, als auch das Projekt
+darin entwickelt werden sollte.
+Den ersten Eindrücken nach ist C++ eine hochkomplexe Sprache und hat mich als Studenten mit seinen Konstrukten wie beispielsweise
+Header-Dateien, Pointers und Referenzen oder dem komplexen Build-Prozess (bestehend aus Kompilieren und Linken) weit mehr gefordert
+als die Sprachen Java oder Python, sodass alleine das Erlernen der Grundlagen von C++ bereits einige Wochen Zeit gekostet hat.
+Da das Integrieren in einer IDE weitere Probleme mit sich führte und letztendlich nicht fehlerfrei funktioniert hatte, entschloss ich
+mich meinen Teil des Projekts über einen einfachen Editor umzusetzen, weshalb der Build-Prozess auch manuell vorgenommen werden musste.
+Letztendlich entschied ich mich dazu - wie das LEDA-Projekt auch - das Build-Tool "Make" und dessen "Makefiles" dafür zu verwenden.
+
+(2) Struktur und Erweiterbarkeit
+
+Wir entschieden uns für eine Untergliederung des Projekts in die 3 Submodule bzw. Subprojekte 'architecture', 'implementation' und
+'demo', da sich so der Aufbau des Projekts am besten wiederspiegeln lässt:
+
+	(a) Das Projekt 'architecure' ist ausschließlich abhängig von der LEDA-Bibliothek und muss nur selten angepasst werden, weshalb 
+		sie die stabilste Komponente darstellt.
+
+	(b) Das Projekt 'implementation' enthält unterschiedliche Implementierungen für die abstrakte Klasse 'step' und das Interface 
+		'step_user_interface'.
+		Sollten weitere konkrete Klassen benötigt werden, so kann man diese dem Projekt einfach hinzufügen, indem man neue
+		Header-Dateien unter dem entsprechenden Ordner in "incl", sowie zugehörige Implementierungen unter dem 
+		entsprechenden Ordner in "src" hinzufügt.
+		Des Weiteren muss man natürlich die Makefile ergänzen und den Build-Prozess neu anstoßen.
+		Alternativ kann auch eine eigene, unabhängige (statische) Bibliothek erzeugt und dem Linker bei den Executables von 'demo'
+		hinzufügt werden.
+		
+	(c) In dem Projekt 'demo' kann man beliebige Anwendungsfälle implementieren und übersetzen.
+		Der Build-Prozess ist bereits so aufgesetzt, dass die Architektur aus (a) sowie die Implementierungen aus (b) zur
+		Verfügung stehen, und man unabhängig davon die Demos hier schreiben, übersetzen und ausführen kann.
+		
+Neben der Ordnerstruktur, findet sich die Subprojekt-Struktur ebenfalls in den Makefiles und Git wieder.
+
+(3) Kommunikation und Versionskontrolle
+
+Zur Versionskontrolle verwendeten wir das bekannte System "Git" und stellten uns gegenseitig die Fortschritte auf "GitHub" unter
+"https://github.com/Steini1998" zur Verfügung.
+Dabei ist jedes der 3 Submodule 'architecture', 'implementation' und 'demo' ein eigenständiges Git-Projekt 'Sugiyama_Architecture',
+'Sugiyama_Implementations' und 'Sugiyama_Demos' und ebenfalls verfügbar auf der gleichen GitHub-Seite.
+Sie werden über das Parent-Projekt 'Sugiyama' zusammengeführt.
