@@ -52,6 +52,13 @@ Anleitung zum Download und Build des Projekts:
 
 Anleitung zum Updaten des bereits gedownloadeten Projekts:
 
-(1) Projekt innerhalb den Root-Ordners "sugiyama" updaten
+(1) Subprojekte von innerhalb des Root-Ordners "sugiyama" updaten.
 
 > git submodule update --remote
+
+(2) Parent-Projekt updaten. 
+	(Alternativ auch "git pull")
+
+> git fetch
+
+> git merge
